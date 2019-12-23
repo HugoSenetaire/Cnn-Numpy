@@ -1,13 +1,16 @@
 import architecture
 import parse_data
-import loss
+import loss_functions
 import utils
 import numpy as np
-# print("OK")
+
+
 if __name__ == '__main__' :
     fc = architecture.FCNetwork(28*28,10) 
+    cnn = architecture.SimpleCNN(28*28,10)
     labels,X = parse_data.parser("train.csv")
-    # labels_oneHot = utils.oneHotEncoding(labels)
-    # print(labels_oneHot.shape)
-    # print(np.shape(labels))
-    fc.train(X,labels,loss.CategoricalCrossEntropy())
+    
+    # print("INIT2",np.shape(labels))
+    # fc.train(X.T,labels,loss_functions.CategoricalCrossEntropy())
+    X = X.reshape(28,28,1,-1)
+    cnn.train(X,labels,loss_functions.CategoricalCrossEntropy())
