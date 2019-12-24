@@ -174,26 +174,25 @@ class Convolution(Layer):
         X_pad = utils.pad(X,self.pad_w,self.pad_h)
         dX_pad = utils.pad(dX,self.pad_w,self.pad_h)
 
-        for i in range(batch_size):
-            x_pad = X_pad[:,:,:,i]
-            dx_pad = dX_pad[:,:,:,i]
+        # for i in range(batch_size):
+ 
   
-            for h in range(self.n_H):
-                for w in range(self.n_W):
-                    y_start = self.stride * h
-                    y_end = y_start + self.kernel_shape[1]
-                    x_start = self.stride * w
-                    x_end = x_start + self.kernel_shape[0]
-                    for f in range(self.nbfilters):
-                        x_slice = x_pad[x_start: x_end, y_start: y_end, :]
-                        dx_pad[x_start:x_end, y_start:y_end, :] += self.parameters[:, :, :, f] * previousGrad[w, h, f, i]
-                        self.gradient[:,:,:,f] += x_slice * previousGrad[w, h, f, i]
-                        # self.grads['db'][:, :, c, :] += previousGrad[i, h, w, c]
+        for h in range(self.n_H):
+            for w in range(self.n_W):
+                y_start = self.stride * h
+                y_end = y_start + self.kernel_shape[1]
+                x_start = self.stride * w
+                x_end = x_start + self.kernel_shape[0]
+                for f in range(self.nbfilters):
+                    x_slice = X_pad[x_start: x_end, y_start: y_end, :,:]
+                    dX_pad[x_start:x_end, y_start:y_end, :, :] += np.dot(self.parameters[:, :, :, f].reshape(self.kernel_shape[0],self.kernel_shape[1],self.previousFilters,1),previousGrad[w, h, f, :].reshape(1,-1))
+                    self.gradient[:,:,:,f] += np.dot(x_slice,previousGrad[w, h, f, :])
+                    # self.grads['db'][:, :, c, :] += previousGrad[i, h, w, c]
         
-            if self.pad_h>0 or self.pad_w >0 :
-                dX[:, :, :, i] = dx_pad[self.pad_h: -self.pad_h, self.pad_w: -self.pad_w, :]
-            else :
-                dX[:, :, :, i] = dx_pad[:, : , :]
+        if self.pad_h>0 :
+            dX[:, :, :, i] = dX[self.pad_h: -self.pad_h, :, :]
+        if self.pad_w >0 :
+            dX[:, :, :, i] = dX[:, self.pad_w: -self.pad_w, :]
 
 
         self.gradient = self.gradient/batch_size
