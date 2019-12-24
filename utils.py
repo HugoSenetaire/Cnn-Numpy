@@ -67,7 +67,7 @@ def parser(path,limitation = float("inf")):
                 label.append(int(aux[0]))
             else : 
                 X.extend(aux)
-        X = np.array(X).reshape(-1,28,28).astype(int)
+        X = np.array(X).reshape(-1,1,28,28).astype(int)
         if Train :
             return X,label
         else : 

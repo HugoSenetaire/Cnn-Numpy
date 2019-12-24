@@ -185,11 +185,6 @@ class Convolution(Layer):
                 x_slice = X_pad[x_start: x_end, y_start: y_end, :,:]
                 dX_pad[x_start:x_end, y_start:y_end, :, :] += np.dot(self.parameters[:, :, :, :],previousGrad[w, h, :, :])
                 self.gradient[:,:,:,:] += np.dot(x_slice,previousGrad[w, h, :, :].T)
-        
-        if self.pad_h>0 :
-            dX = dX[self.pad_h: -self.pad_h, :, :,:]
-        if self.pad_w >0 :
-            dX = dX[:, self.pad_w: -self.pad_w, :,:]
 
 
         self.gradient = self.gradient/batch_size
@@ -222,8 +217,8 @@ class Pool(Layer):
     
     def forward(self,x):
         if self.output is None :
-            self.n_H = int((np.shape(x)[1] - self.kernel_shape[1]) / self.stride) + 1
-            self.n_W = int((np.shape(x)[0] - self.kernel_shape[0]) / self.stride) + 1
+            self.n_H = int((np.shape(x)[1] - self.kernel_shape[1]) / self.stride)+1
+            self.n_W = int((np.shape(x)[0] - self.kernel_shape[0]) / self.stride)+1
             self.output = np.zeros((self.n_W,self.n_H,self.nbfilters,np.shape(x)[-1]))
             self.input = copy.deepcopy(x)
         else : 

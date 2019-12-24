@@ -15,10 +15,9 @@ class Model():
             nbBatch = int(np.shape(data)[0]/batch_size)
             for i, (X, Y) in enumerate(utils.get_batches(data, labels, batch_size=batch_size)):
                 compteur+=np.shape(X)[-1]
-                X = X.reshape(28,28,1,-1)
                 Y= utils.oneHotEncoding(Y,self.outputSize)
                 self.inputLayer.forward(X)
-                if abs(i/float(nbBatch)-0.5)<0.01 or abs(i/float(nbBatch)-0.3)<0.01 or abs(i/float(nbBatch)-0.8)<0.01:
+                if abs(i/float(nbBatch)-0.5)<1/float(nbBatch) or abs(i/float(nbBatch)-0.3)<1/float(nbBatch) or abs(i/float(nbBatch)-0.8)<1/float(nbBatch):
                     valueLoss = loss.compute_loss(Y,self.outputLayer.activatedOutput)
                     precision = loss_functions.precision(Y,self.outputLayer.activatedOutput)
                     print(f"TRAIN ({compteur}/{len(labels)}) Batch: {i+1} Epochs: {epoch+1} - Loss : {valueLoss} Precision : {precision}")
