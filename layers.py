@@ -181,11 +181,10 @@ class Convolution(Layer):
                 y_end = y_start + self.kernel_shape[1]
                 x_start = self.stride * w
                 x_end = x_start + self.kernel_shape[0]
-                for f in range(self.nbfilters):
-                    x_slice = X_pad[x_start: x_end, y_start: y_end, :,:]
-                    dX_pad[x_start:x_end, y_start:y_end, :, :] += np.dot(self.parameters[:, :, :, f].reshape(self.kernel_shape[0],self.kernel_shape[1],self.previousFilters,1),previousGrad[w, h, f, :].reshape(1,-1))
-                    self.gradient[:,:,:,f] += np.dot(x_slice,previousGrad[w, h, f, :])
-                    # self.grads['db'][:, :, c, :] += previousGrad[h, w, f,:]
+                x_slice = X_pad[x_start: x_end, y_start: y_end, :,:]
+                dX_pad[x_start:x_end, y_start:y_end, :, :] += np.dot(self.parameters[:, :, :, :],previousGrad[w, h, :, :])
+                self.gradient[:,:,:,:] += np.dot(x_slice,previousGrad[w, h, :, :].T)
+                # self.grads['db'][:, :, c, :] += previousGrad[h, w, f,:]
         
         if self.pad_h>0 :
             dX[:, :, :, i] = dX[self.pad_h: -self.pad_h, :, :]
@@ -230,7 +229,7 @@ class Pool(Layer):
         else : 
             self.input += x
 
-        # Add parallel here
+ 
 
         for h in range(self.n_H):
             for w in range(self.n_W):
