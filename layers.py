@@ -174,9 +174,7 @@ class Convolution(Layer):
         X_pad = utils.pad(X,self.pad_w,self.pad_h)
         dX_pad = utils.pad(dX,self.pad_w,self.pad_h)
 
-        # for i in range(batch_size):
- 
-  
+
         for h in range(self.n_H):
             for w in range(self.n_W):
                 y_start = self.stride * h
@@ -187,7 +185,7 @@ class Convolution(Layer):
                     x_slice = X_pad[x_start: x_end, y_start: y_end, :,:]
                     dX_pad[x_start:x_end, y_start:y_end, :, :] += np.dot(self.parameters[:, :, :, f].reshape(self.kernel_shape[0],self.kernel_shape[1],self.previousFilters,1),previousGrad[w, h, f, :].reshape(1,-1))
                     self.gradient[:,:,:,f] += np.dot(x_slice,previousGrad[w, h, f, :])
-                    # self.grads['db'][:, :, c, :] += previousGrad[i, h, w, c]
+                    # self.grads['db'][:, :, c, :] += previousGrad[h, w, f,:]
         
         if self.pad_h>0 :
             dX[:, :, :, i] = dX[self.pad_h: -self.pad_h, :, :]
@@ -260,22 +258,21 @@ class Pool(Layer):
     def backward(self,previousGrad):
         batch_size = np.shape(self.input)[-1]
         grad = np.zeros(np.shape(self.input))
-        for i in range(batch_size):
-            x = self.input[:,:,:,i]
-            for h in range(self.n_H): 
-                for w in range(self.n_W):
-                    y_start = self.stride * h
-                    y_end = y_start + self.kernel_shape[1]
-                    x_start = self.stride * w
-                    x_end = x_start + self.kernel_shape[0]
+        x = self.input[:,:,:,:]
+        for h in range(self.n_H): 
+            for w in range(self.n_W):
+                y_start = self.stride * h
+                y_end = y_start + self.kernel_shape[1]
+                x_start = self.stride * w
+                x_end = x_start + self.kernel_shape[0]
 
-                    for f in range(self.nbfilters):
-                        if self.mode == "average" :
-                            nbPixels = float(self.kernel_shape[0]*self.kernel_shape[1])
-                            grad[x_start: x_end, y_start: y_end, f,i] += (np.ones((self.kernel_shape[0],self.kernel_shape[1]))/(nbPixels))*previousGrad[w,h,f,i]
-                        elif self.mode == "max" :
-                            x_slice = x[x_start: x_end, y_start: y_end, f]
-                            grad[x_start: x_end, y_start: y_end, f,i] += (x_slice==np.max(x_slice))*previousGrad[w,h,f,i]
+                for f in range(self.nbfilters):
+                    if self.mode == "average" :
+                        nbPixels = float(self.kernel_shape[0]*self.kernel_shape[1])
+                        grad[x_start: x_end, y_start: y_end, f,:] += np.dot(np.ones((self.kernel_shape[0],self.kernel_shape[1],1))/(nbPixels),previousGrad[w,h,f,:].reshape(1,-1))
+                    elif self.mode == "max" :
+                        x_slice = x[x_start: x_end, y_start: y_end, f,:]
+                        grad[x_start: x_end, y_start: y_end, f,:] += np.dot((x_slice==np.max(x_slice)).reshape(self.kernel_shape[0],self.kernel_shape[1],1),previousGrad[w,h,f,:].reshape(1,-1))
                     
         for parent in self.parents :
             parent.sonsVisited+=1
@@ -293,9 +290,7 @@ class Flatten(Layer):
         self.shape = x.shape
         batch_size = np.shape(x)[-1]
         self.output = np.reshape(x,(-1,batch_size))
-        # print(self.output == x)
         self.activatedOutput = self.output
-        # print("FLATTEN OUTPUT",self.output.shape)
         if (self.parentsVisited == len(self.parents)):
             self.batch_size = np.shape(x)[1]
             for son in self.sons :
