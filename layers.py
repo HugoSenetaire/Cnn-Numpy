@@ -4,36 +4,50 @@ import utils
 import copy
 import scipy
 from scipy import signal
-from numpy.lib.stride_tricks import as_strided
+
+
 # Abstract Layer class :
 class Layer():
-    def __init__(self, activation = activate.Identity):
-        self.sons = []
-        self.sonsVisited = 0
-        self.parents = []
-        self.gradient = None # Récursive
+    def __init__(self, activation = activate.Identity,name = None):
+
+       
+
+        # Cache
+        self.gradient = None 
         self.output = None
         self.activatedOutput = None
-        self.activation = activation
         self.parameters = None
-        self.trainable = True
-        self.parentsVisited = 0
+        self.name = name
+        ## State of forward or backward ()
         self.sonsVisited = 0
-
+        self.parentsVisited = 0
+        # Parameters
+        self.sons = []
+        self.parents = []
+        self.activation = activation
+        self.trainable = True #TODO
     
     def addSon(self,son):
+        """ Add another layer as child of the current layer (if multiple childs, outputs are added) """
         self.sons.append(son)
         son.parents.append(self)
 
-    def optimize(self, learningRate,l2_penalty = 1e-4):
+    def optimize(self, learningRate,l2_penalty = 0):
+        """ Use current cache gradient to make gradient descent """
         if self.parameters is not None :
             self.parameters -= learningRate * (self.gradient+l2_penalty * self.parameters)
-        # self.parameters -=learningRate*self.gradient
         for son in self.sons :
             son.optimize(learningRate)
-
+    # TODO
+    # def save_weights(self,path):
+    #     if self.parameters is not None :
+            
+    
+    #     with open(save_path, 'wb') as d:
+    #         pickle.dump(dump_cache, d)
 
     def initGrad(self):
+        """ Put every cache to initial state """
         self.gradient = np.zeros(np.shape(self.parameters))
         self.output = None
         self.activatedOutput = None
@@ -58,15 +72,15 @@ class FullyConnected(Layer):
         super().__init__(activation)
         self.inputSize = inputSize
         self.outputSize = outputSize
-        self.parameters = np.random.normal(size=(outputSize,inputSize))
+        self.parameters = np.random.uniform(-1,1,size=(outputSize,inputSize))
         self.batch_size = None
         self.gradient = np.zeros(np.shape(self.parameters))
         self.output = None
-        self.first = True
         self.input = None
         
 
     def forward(self,x):
+        
         if self.output is None :
             self.output = np.dot(self.parameters,x)
             self.input = x
@@ -74,7 +88,7 @@ class FullyConnected(Layer):
             self.output += np.dot(self.parameters,x)
             self.input += x
 
-        print("FORWARD OUTPUT",self.output.shape)
+
         if (self.parentsVisited == len(self.parents)):
             self.batch_size = np.shape(x)[1]
             self.activatedOutput = self.activation.forward(self.output)
@@ -83,11 +97,11 @@ class FullyConnected(Layer):
                 son.forward(self.activatedOutput)
                 
     def backward(self,previousGrad):
-
         self.batch_size = np.shape(self.output)[1]    
         previousGrad = self.activation.gradient(self.output,previousGrad)
-        self.gradient += np.dot(previousGrad,self.input.T)/self.batch_size
+        self.gradient += np.dot(previousGrad,self.input.T)
         if(self.sonsVisited == len(self.sons)):
+            self.gradient = self.gradient/self.batch_size
             auxGrad = np.dot(self.parameters.T,previousGrad)
             for parent in self.parents :
                 parent.sonsVisited+=1
@@ -101,14 +115,14 @@ class FullyConnected(Layer):
 
 class Convolution(Layer):
 
-    def __init__(self, nbfilters, previousFilters, kernel_shape = (3,3), padding="other",stride = 1):
+    def __init__(self, nbfilters, previousFilters, kernel_shape = (3,3), padding="same",stride = 1):
         super().__init__()
         
 
         #Parameters :
         self.nbfilters = nbfilters
         self.kernel_shape = kernel_shape
-        self.parameters = np.random.normal(size=(kernel_shape[0],kernel_shape[1],previousFilters, nbfilters))*0.01
+        self.parameters = np.random.uniform(-1,1,size=(kernel_shape[0],kernel_shape[1],previousFilters, nbfilters))
         self.padding = padding
         self.previousFilters = previousFilters
         self.stride = stride
@@ -141,25 +155,12 @@ class Convolution(Layer):
             self.input += x
         X_pad = utils.pad(x,self.pad_w,self.pad_h)
 
-
         for i in range(np.shape(x)[-1]):
             X = X_pad[:,:,:,i]
             for f in range(self.nbfilters):
                 for g in range(self.previousFilters):
                     self.output[:,:,f,i]+= signal.convolve2d(X[:,:,g], self.parameters[:,:,g,f], 'valid')
 
-            # for h in range(self.n_H):
-            #     for w in range(self.n_W):
-            #         y_start = self.stride * h
-            #         y_end = y_start + self.kernel_shape[1]
-            #         x_start = self.stride * w
-            #         x_end = x_start + self.kernel_shape[0]
-
-            #         for f in range(self.nbfilters):
-            #             X_slice = X[x_start: x_end, y_start: y_end, :]
-            #             self.output[w,h,f,i] = np.sum(np.multiply(X_slice,self.parameters[:,:,:,f]))
-
-        print("CNN OUTPUT",self.output.shape)
         if (self.parentsVisited == len(self.parents)):
             for son in self.sons :
                 son.parentsVisited+=1
@@ -184,12 +185,11 @@ class Convolution(Layer):
                 x_slice = X_pad[x_start: x_end, y_start: y_end, :,:]
                 dX_pad[x_start:x_end, y_start:y_end, :, :] += np.dot(self.parameters[:, :, :, :],previousGrad[w, h, :, :])
                 self.gradient[:,:,:,:] += np.dot(x_slice,previousGrad[w, h, :, :].T)
-                # self.grads['db'][:, :, c, :] += previousGrad[h, w, f,:]
         
         if self.pad_h>0 :
-            dX[:, :, :, i] = dX[self.pad_h: -self.pad_h, :, :]
+            dX = dX[self.pad_h: -self.pad_h, :, :,:]
         if self.pad_w >0 :
-            dX[:, :, :, i] = dX[:, self.pad_w: -self.pad_w, :]
+            dX = dX[:, self.pad_w: -self.pad_w, :,:]
 
 
         self.gradient = self.gradient/batch_size
@@ -202,7 +202,7 @@ class Convolution(Layer):
 
 
 class Pool(Layer):
-    def __init__(self, previousFilters, kernel_shape = (3,3), mode = "average",stride = 1):
+    def __init__(self, previousFilters, kernel_shape = (2,2), mode = "average",stride = 1):
         super().__init__()
         #Parameters :
         self.nbfilters = previousFilters
@@ -229,7 +229,6 @@ class Pool(Layer):
         else : 
             self.input += x
 
- 
 
         for h in range(self.n_H):
             for w in range(self.n_W):
@@ -247,7 +246,7 @@ class Pool(Layer):
                     self.output[w,h,:,:] = np.sum(np.sum(X_slice,axis=0),axis=0)/nbPixels
                     
         
-        print("POOL OUTPUT",self.output.shape)
+
         if (self.parentsVisited == len(self.parents)):
             self.batch_size = np.shape(x)[1]
             for son in self.sons :
@@ -264,14 +263,13 @@ class Pool(Layer):
                 y_end = y_start + self.kernel_shape[1]
                 x_start = self.stride * w
                 x_end = x_start + self.kernel_shape[0]
-
                 for f in range(self.nbfilters):
                     if self.mode == "average" :
                         nbPixels = float(self.kernel_shape[0]*self.kernel_shape[1])
                         grad[x_start: x_end, y_start: y_end, f,:] += np.dot(np.ones((self.kernel_shape[0],self.kernel_shape[1],1))/(nbPixels),previousGrad[w,h,f,:].reshape(1,-1))
                     elif self.mode == "max" :
                         x_slice = x[x_start: x_end, y_start: y_end, f,:]
-                        grad[x_start: x_end, y_start: y_end, f,:] += np.dot((x_slice==np.max(x_slice)).reshape(self.kernel_shape[0],self.kernel_shape[1],1),previousGrad[w,h,f,:].reshape(1,-1))
+                        grad[x_start: x_end, y_start: y_end, f,:] += np.dot(np.ones(x_slice==np.max(x_slice)).reshape(self.kernel_shape[0],self.kernel_shape[1],1),previousGrad[w,h,f,:].reshape(1,-1))
                     
         for parent in self.parents :
             parent.sonsVisited+=1

@@ -1,5 +1,4 @@
 import architecture
-import parse_data
 import loss_functions
 import utils
 import numpy as np
@@ -8,11 +7,8 @@ import numpy as np
 if __name__ == '__main__' :
     fc = architecture.FCNetwork(28*28,10) 
     cnn = architecture.SimpleCNN(28*28,10)
-    # simpleFlatten = architecture.simpleFlattenv2(28*28,10)
-    # simpleFlatten = architecture.simpleFlatten(28*28,10)
-
-    labels,X = parse_data.parser("train.csv")
-    # fc.train(X.T,labels,loss_functions.CategoricalCrossEntropy(),epochs = 100)
-    X = X.reshape(28,28,1,-1)
-    cnn.train(X,labels,loss_functions.CategoricalCrossEntropy(),epochs = 1000, learning_rate = 1e-4)
-    # simpleFlatten.train(X,labels,loss_functions.CategoricalCrossEntropy(),epochs = 10,learning_rate = 1e-4)
+    cnn2 = architecture.SimpleCNN2(28*28,10)
+    data,labels= utils.parser("train.csv")
+    data,labels,data_test,labels_test,data_eval,labels_eval = utils.separate_train_eval(data,labels)
+    # fc.train(data,labels,loss_functions.CategoricalCrossEntropy(), epochs = 2000, learning_rate = 1e-2, data_test = data_test, labels_test =labels_test)
+    cnn.train(data,labels,loss_functions.CategoricalCrossEntropy(),epochs = 1000, learning_rate = 1e-5, data_test = data_test, labels_test =labels_test)

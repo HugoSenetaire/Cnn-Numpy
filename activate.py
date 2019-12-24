@@ -9,10 +9,6 @@ class Activation():
     def gradient(self,x):
         raise NotImplementedError
 
-
-
-
-
 ## Real class for activation :
 
 class Identity(Activation):
@@ -30,10 +26,13 @@ class Relu(Activation):
         return previous
 
 class SoftMax(Activation):
+
     def forward(self,x):
-        x = (x - x.max())/x.std()
+        x = x/x.std()
         e = np.exp(x)
+        e = e / np.sum(e, axis=0, keepdims=True)
         return e / np.sum(e, axis=0, keepdims=True)
 
-    def gradient(self, input,previous):
-        return previous * (self.forward(input) * (1 - self.forward(input)))
+    def gradient(self, x,previous):
+        return previous * (self.forward(x) * (1 - self.forward(x)))
+
