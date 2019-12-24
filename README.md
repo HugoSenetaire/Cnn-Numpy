@@ -2,7 +2,7 @@
 
 Implementation of CNNs using only numpy (actually one function uses scipy)
 
-main.py : Script to train
+main.py : Script to train \
 architecture.py : Create NN architecture here
 
 
