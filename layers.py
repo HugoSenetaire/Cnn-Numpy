@@ -2,6 +2,9 @@ import numpy as np
 import activate
 import utils
 import copy
+import scipy
+from scipy import signal
+from numpy.lib.stride_tricks import as_strided
 # Abstract Layer class :
 class Layer():
     def __init__(self, activation = activate.Identity):
@@ -43,10 +46,10 @@ class Layer():
     
     # @abstractmethod
     def forward(self,x):
-        raise NotImplentedError 
+        raise NotImplementedError 
 
     def backward(self,x,target):
-        raise NotImplentedError
+        raise NotImplementedError
 
 # Implemented Layers :
 
@@ -106,8 +109,8 @@ class Convolution(Layer):
         self.nbfilters = nbfilters
         self.kernel_shape = kernel_shape
         self.parameters = np.random.normal(size=(kernel_shape[0],kernel_shape[1],previousFilters, nbfilters))*0.01
-        print("TEST",np.shape(self.parameters))
         self.padding = padding
+        self.previousFilters = previousFilters
         self.stride = stride
 
 
@@ -141,16 +144,20 @@ class Convolution(Layer):
 
         for i in range(np.shape(x)[-1]):
             X = X_pad[:,:,:,i]
-            for h in range(self.n_H):
-                for w in range(self.n_W):
-                    y_start = self.stride * h
-                    y_end = y_start + self.kernel_shape[1]
-                    x_start = self.stride * w
-                    x_end = x_start + self.kernel_shape[0]
+            for f in range(self.nbfilters):
+                for g in range(self.previousFilters):
+                    self.output[:,:,f,i]+= signal.convolve2d(X[:,:,g], self.parameters[:,:,g,f], 'valid')
 
-                    for f in range(self.nbfilters):
-                        X_slice = X[x_start: x_end, y_start: y_end, :]
-                        self.output[w,h,f,i] = np.sum(np.multiply(X_slice,self.parameters[:,:,:,f]))
+            # for h in range(self.n_H):
+            #     for w in range(self.n_W):
+            #         y_start = self.stride * h
+            #         y_end = y_start + self.kernel_shape[1]
+            #         x_start = self.stride * w
+            #         x_end = x_start + self.kernel_shape[0]
+
+            #         for f in range(self.nbfilters):
+            #             X_slice = X[x_start: x_end, y_start: y_end, :]
+            #             self.output[w,h,f,i] = np.sum(np.multiply(X_slice,self.parameters[:,:,:,f]))
 
         print("CNN OUTPUT",self.output.shape)
         if (self.parentsVisited == len(self.parents)):
@@ -177,7 +184,6 @@ class Convolution(Layer):
                     y_end = y_start + self.kernel_shape[1]
                     x_start = self.stride * w
                     x_end = x_start + self.kernel_shape[0]
-
                     for f in range(self.nbfilters):
                         x_slice = x_pad[x_start: x_end, y_start: y_end, :]
                         dx_pad[x_start:x_end, y_start:y_end, :] += self.parameters[:, :, :, f] * previousGrad[w, h, f, i]
@@ -188,10 +194,12 @@ class Convolution(Layer):
                 dX[:, :, :, i] = dx_pad[self.pad_h: -self.pad_h, self.pad_w: -self.pad_w, :]
             else :
                 dX[:, :, :, i] = dx_pad[:, : , :]
+
+
         self.gradient = self.gradient/batch_size
         for parent in self.parents :
             parent.sonsVisited+=1
-            parent.backward(dArg)
+            parent.backward(dX)
             
 
 
@@ -286,7 +294,9 @@ class Flatten(Layer):
         self.shape = x.shape
         batch_size = np.shape(x)[-1]
         self.output = np.reshape(x,(-1,batch_size))
-        print("FLATTEN OUTPUT",self.output.shape)
+        # print(self.output == x)
+        self.activatedOutput = self.output
+        # print("FLATTEN OUTPUT",self.output.shape)
         if (self.parentsVisited == len(self.parents)):
             self.batch_size = np.shape(x)[1]
             for son in self.sons :
