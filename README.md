@@ -1,6 +1,6 @@
 # Cnn-Numpy
 
-Implementation of CNNs using only numpy (actually one function uses scipy)
+Implementation of CNNs using only numpy 
 
 main.py : Script to train \
 architecture.py : Create NN architecture here \
